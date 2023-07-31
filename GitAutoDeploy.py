@@ -41,7 +41,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
                 print 'Ping event received'
             self.respond(204)
             return
-        if event != 'push':
+        if event != 'repo:push':
             if not self.quiet:
                 print 'We only handle ping and push events'
             self.respond(304)

@@ -60,8 +60,8 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         length = int(self.headers.getheader('content-length'))
         body = self.rfile.read(length)
         payload = json.loads(body)
-        self.branch = payload['ref']
-        return [payload['repository']['url']]
+        self.branch = 'master'
+        return [payload['repository']['links']['html']['href']]
 
     def getMatchingPaths(self, repoUrl):
         res = []

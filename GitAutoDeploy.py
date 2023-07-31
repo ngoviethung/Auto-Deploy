@@ -35,7 +35,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         return myClass.config
 
     def do_POST(self):
-        event = self.headers.getheader('X-Github-Event')
+        event = self.headers.getheader('X-Event-Key')
         if event == 'ping':
             if not self.quiet:
                 print 'Ping event received'

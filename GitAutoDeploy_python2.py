@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
-import json, sys, os
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import json, urlparse, sys, os
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from subprocess import call
 
 class GitAutoDeploy(BaseHTTPRequestHandler):
@@ -12,39 +12,38 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
     daemon = False
 
     @classmethod
-    def getConfig(cls):
-        if cls.config is None:
+    def getConfig(myClass):
+        if(myClass.config == None):
             try:
-                with open(cls.CONFIG_FILEPATH) as config_file:
-                    config_string = config_file.read()
+                configString = open(myClass.CONFIG_FILEPATH).read()
             except:
-                sys.exit('Could not load ' + cls.CONFIG_FILEPATH + ' file')
+                sys.exit('Could not load ' + myClass.CONFIG_FILEPATH + ' file')
 
             try:
-                cls.config = json.loads(config_string)
+                myClass.config = json.loads(configString)
             except:
-                sys.exit(cls.CONFIG_FILEPATH + ' file is not valid json')
+                sys.exit(myClass.CONFIG_FILEPATH + ' file is not valid json')
 
-            for repository in cls.config['repositories']:
-                if not os.path.isdir(repository['path']):
+            for repository in myClass.config['repositories']:
+                if(not os.path.isdir(repository['path'])):
                     sys.exit('Directory ' + repository['path'] + ' not found')
                 # Check for a repository with a local or a remote GIT_WORK_DIR
                 if not os.path.isdir(os.path.join(repository['path'], '.git')) \
                    and not os.path.isdir(os.path.join(repository['path'], 'objects')):
                     sys.exit('Directory ' + repository['path'] + ' is not a Git repository')
 
-        return cls.config
+        return myClass.config
 
     def do_POST(self):
-        event = self.headers.get('X-Event-Key')
+        event = self.headers.getheader('X-Event-Key')
         if event == 'ping':
             if not self.quiet:
-                print('Ping event received')
+                print 'Ping event received'
             self.respond(204)
             return
         if event != 'repo:push':
             if not self.quiet:
-                print('We only handle ping and push events')
+                print 'We only handle ping and push events'
             self.respond(304)
             return
 
@@ -58,7 +57,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
                 self.deploy(path)
 
     def parseRequest(self):
-        length = int(self.headers.get('content-length'))
+        length = int(self.headers.getheader('content-length'))
         body = self.rfile.read(length)
         payload = json.loads(body)
         self.branch = 'master'
@@ -68,7 +67,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         res = []
         config = self.getConfig()
         for repository in config['repositories']:
-            if repository['url'] == repoUrl:
+            if(repository['url'] == repoUrl):
                 res.append(repository['path'])
         return res
 
@@ -78,61 +77,61 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         self.end_headers()
 
     def fetch(self, path):
-        if not self.quiet:
-            print("\nPost push request received")
-            print('Updating ' + path)
+        if(not self.quiet):
+            print "\nPost push request received"
+            print 'Updating ' + path
         call(['cd "' + path + '" && git fetch'], shell=True)
 
     def deploy(self, path):
         config = self.getConfig()
         for repository in config['repositories']:
-            if repository['path'] == path:
+            if(repository['path'] == path):
                 if 'deploy' in repository:
                     branch = None
                     if 'branch' in repository:
                         branch = repository['branch']
 
                     if branch is None or branch == self.branch:
-                        if not self.quiet:
-                            print('Executing deploy command')
+                        if(not self.quiet):
+                            print 'Executing deploy command'
                         call(['cd "' + path + '" && ' + repository['deploy']], shell=True)
-
+                        
                     elif not self.quiet:
-                        print('Push to different branch (%s != %s), not deploying' % (branch, self.branch))
+                        print 'Push to different branch (%s != %s), not deploying' % (branch, self.branch)
                 break
 
 def main():
     try:
         server = None
-        for arg in sys.argv:
-            if arg == '-d' or arg == '--daemon-mode':
+        for arg in sys.argv: 
+            if(arg == '-d' or arg == '--daemon-mode'):
                 GitAutoDeploy.daemon = True
                 GitAutoDeploy.quiet = True
-            if arg == '-q' or arg == '--quiet':
+            if(arg == '-q' or arg == '--quiet'):
                 GitAutoDeploy.quiet = True
-
-        if GitAutoDeploy.daemon:
+                
+        if(GitAutoDeploy.daemon):
             pid = os.fork()
-            if pid != 0:
+            if(pid != 0):
                 sys.exit()
             os.setsid()
 
-        if not GitAutoDeploy.quiet:
-            print('Github Autodeploy Service v0.2 started')
+        if(not GitAutoDeploy.quiet):
+            print 'Github Autodeploy Service v0.2 started'
         else:
-            print('Github Autodeploy Service v 0.2 started in daemon mode')
-
+            print 'Github Autodeploy Service v 0.2 started in daemon mode'
+             
         server = HTTPServer(('', GitAutoDeploy.getConfig()['port']), GitAutoDeploy)
         server.serve_forever()
     except (KeyboardInterrupt, SystemExit) as e:
-        if e: # wtf, why is this creating a new line?
-            print(e, file=sys.stderr)
+        if(e): # wtf, why is this creating a new line?
+            print >> sys.stderr, e
 
-        if server is not None:
+        if(not server is None):
             server.socket.close()
 
-        if not GitAutoDeploy.quiet:
-            print('Goodbye')
+        if(not GitAutoDeploy.quiet):
+            print 'Goodbye'
 
 if __name__ == '__main__':
      main()
